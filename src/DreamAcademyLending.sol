@@ -21,12 +21,16 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
 
     function initializeLendingProtocol(address tokenAddress) public payable {
         map_reserved_token_amount[tokenAddress] = msg.value;
+        asset.transferFrom(msg.sender, address(this), msg.value);
     }
+
+    //clear
     function deposit(address tokenAddress, uint256 amount) public payable {
-        require(msg.value != 0);
-        require(msg.value == amount);
-        if (tokenAddress == asset_address){
-            require(asset.allowance(msg.sender, address(this)) >= amount);
+        if (tokenAddress != asset_address){
+            require(msg.value != 0, "ETH deposit: msg.value should not be 0");
+            require(msg.value == amount, "ETH deposit: msg.value should match amount");
+        } else {
+            require(asset.allowance(msg.sender, address(this)) >= amount, "USDC deposit: not enough allowance");
             asset.transferFrom(msg.sender, address(this), amount);
         }
     }
