@@ -84,6 +84,7 @@ contract Testx is Test {
     }
 
     function testDepositUSDCWithInsufficientValueFails() external {
+        // approve overflow => 0으로 돌아감
         usdc.approve(address(lending), 1);
         (bool success,) = address(lending).call(
             abi.encodeWithSelector(DreamAcademyLending.deposit.selector, address(usdc), 3000 ether)

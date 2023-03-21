@@ -1,20 +1,21 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-//version 0.0.1 - 21/03/2023 13:13
-
+import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import "./interface/IDreamAcademyLending.sol";
 import "./interface/IPriceOracle.sol";
 
 contract DreamAcademyLending is IDreamAcaemdyLending{
 
     IPriceOracle oracle;
-    address asset;
+    ERC20 asset;
+    address asset_address;
     address owner;
     mapping(address => uint256) map_reserved_token_amount;
     constructor(IPriceOracle _oracle, address _asset) {
         oracle = _oracle;
-        asset = _asset;
+        asset_address = _asset;
+        asset = ERC20(asset_address);
         owner = msg.sender;
     }
 
@@ -22,7 +23,12 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
         map_reserved_token_amount[tokenAddress] = msg.value;
     }
     function deposit(address tokenAddress, uint256 amount) public payable {
-
+        require(msg.value != 0);
+        require(msg.value == amount);
+        if (tokenAddress == asset_address){
+            require(asset.allowance(msg.sender, address(this)) >= amount);
+            asset.transferFrom(msg.sender, address(this), amount);
+        }
     }
 
     function borrow(address tokenAddress, uint256 amount) public {
