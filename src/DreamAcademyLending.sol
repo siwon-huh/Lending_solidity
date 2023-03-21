@@ -14,10 +14,10 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
     address owner;
     mapping(address => uint256) map_total_reserved_token_amount;
     mapping(address => mapping(address => uint256)) map_user_deposit_token_amount;
-    mapping(address => mapping(address => uint256[])) map_user_deposit_token_blockNum;
+    mapping(address => mapping(address => uint256)) map_user_deposit_token_blockNum;
 
     mapping(address => mapping(address => uint256)) map_user_borrow_token_amount;
-    mapping(address => mapping(address => uint256[])) map_user_borrow_token_blockNum;
+    mapping(address => mapping(address => uint256)) map_user_borrow_token_blockNum;
 
     uint256 eth_price;
     uint256 usdc_price;
@@ -26,7 +26,7 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
     uint256 current_block_number;
     uint256 block_interval;
     uint256 interest_18decimal = 1000000138819500339;
-    // uint256 interest_18decimal = 1000190000000000000;
+    // uint256 interest_18decimal = 1000150000000000000;
 
     uint256 liquidation_thershold = 75;
 
@@ -61,7 +61,7 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
             // update deposit account book
             map_user_deposit_token_amount[msg.sender][tokenAddress] += msg.value;
             map_total_reserved_token_amount[tokenAddress] += msg.value;
-            map_user_deposit_token_blockNum[msg.sender][tokenAddress].push(block.number);
+            map_user_deposit_token_blockNum[msg.sender][tokenAddress] = block.number;
 
 
         } else {
@@ -76,7 +76,7 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
             // update deposit account book
             map_user_deposit_token_amount[msg.sender][tokenAddress] += amount;
             map_total_reserved_token_amount[tokenAddress] += amount;
-            map_user_deposit_token_blockNum[msg.sender][tokenAddress].push(block.number);
+            map_user_deposit_token_blockNum[msg.sender][tokenAddress] = block.number;
 
         }
     }
@@ -89,15 +89,11 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
 
     function updateBorrowal() public {
         current_block_number = block.number;
-        for (uint i = 0; i < map_user_borrow_token_blockNum[msg.sender][usdc_address].length; i++) {
-            block_interval = current_block_number - map_user_borrow_token_blockNum[msg.sender][usdc_address][i];
-            uint user_borrowal = map_user_borrow_token_amount[msg.sender][usdc_address];
-            for (uint j = 0; j < block_interval; j++) {
-                user_borrowal = user_borrowal * interest_18decimal / (10**18);
-            }
-            map_user_borrow_token_amount[msg.sender][usdc_address] = user_borrowal;
-            map_user_borrow_token_blockNum[msg.sender][usdc_address][i] = current_block_number;
-        }
+        block_interval = current_block_number - map_user_borrow_token_blockNum[msg.sender][usdc_address];
+        uint user_borrowal = map_user_borrow_token_amount[msg.sender][usdc_address];
+        user_borrowal = user_borrowal * interest_18decimal ** block_interval / (10**18) ** block_interval;
+        map_user_borrow_token_amount[msg.sender][usdc_address] = user_borrowal;
+        map_user_borrow_token_blockNum[msg.sender][usdc_address] = current_block_number;
     }
 
     function borrow(address tokenAddress, uint256 amount) public {
@@ -118,7 +114,7 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
 
         // step2: update borrow account book
         map_user_borrow_token_amount[msg.sender][usdc_address] += amount;
-        map_user_borrow_token_blockNum[msg.sender][tokenAddress].push(block.number);
+        map_user_borrow_token_blockNum[msg.sender][tokenAddress] = block.number;
 
 
         // step3: send user the token
@@ -170,7 +166,12 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
     }
 
     function getAccruedSupplyAmount(address tokenAddress) public returns (uint256 accruedSupplyAmount) {
-
+        current_block_number = block.number;
+        block_interval = current_block_number - map_user_borrow_token_blockNum[msg.sender][usdc_address];
+        uint user_borrowal = map_user_borrow_token_amount[msg.sender][usdc_address];
+        user_borrowal = user_borrowal * interest_18decimal ** block_interval / (10**18) ** block_interval;
     }
+    
+
     receive() external payable {}
 }
