@@ -19,7 +19,7 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
     uint256 eth_price;
     uint256 usdc_price;
 
-    // uint256 LTV = 
+    uint256 loan_to_value = 50;
 
 
     constructor(IPriceOracle _oracle, address _usdc) {
@@ -50,7 +50,7 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
         }
     }
 
-    function updateOracle() public{
+    function updateOracle() internal {
         eth_price = oracle.getPrice(eth_address);
         usdc_price = oracle.getPrice(usdc_address);
     }
@@ -58,17 +58,22 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
     function borrow(address tokenAddress, uint256 amount) public {
         uint256 user_eth_deposit = map_user_deposit_token_amount[msg.sender][eth_address];
         uint256 user_usdc_deposit = map_user_deposit_token_amount[msg.sender][usdc_address];
+        uint256 user_eth_borrowed = map_user_borrow_token_amount[msg.sender][eth_address];
+        uint256 user_usdc_borrowed = map_user_borrow_token_amount[msg.sender][usdc_address];
 
         updateOracle();
 
         if(tokenAddress == usdc_address){
-            require(user_eth_deposit * eth_price >= amount * usdc_price, "not enough collateral");
+            uint256 userUSDCLoanLimit = ((user_eth_deposit * eth_price * loan_to_value) / (usdc_price * 100)) - user_usdc_borrowed;
+            require(userUSDCLoanLimit >= amount, "not enough collateral");
 
-            map_user_borrow_token_amount[msg.sender][tokenAddress] += amount;
+            map_user_borrow_token_amount[msg.sender][usdc_address] += amount;
             usdc.approve(address(this), amount);
             usdc.transferFrom(address(this), msg.sender, amount);
         } else {
-            map_user_borrow_token_amount[msg.sender][tokenAddress] += amount;
+            uint256 userETHLoanLimit = ((user_usdc_deposit * usdc_price * loan_to_value) / (eth_price * 100)) - user_eth_borrowed;
+            require(userETHLoanLimit >= amount, "not enough collateral");
+            map_user_borrow_token_amount[msg.sender][eth_address] += amount;
             (bool sent, ) = msg.sender.call{value: amount}("");
         }
     }
