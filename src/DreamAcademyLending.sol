@@ -27,6 +27,8 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
     uint256 block_interval;
     uint256 interest_18decimal = 1000000138819500339;
 
+    uint256 liquidation_thershold = 75;
+
 
 
     constructor(IPriceOracle _oracle, address _usdc) {
@@ -84,69 +86,52 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
         usdc_price = oracle.getPrice(usdc_address);
     }
 
-    function updateBorrowal(address tokenAddress) public {
+    function updateBorrowal() public {
         current_block_number = block.number;
-        for (uint i = 0; i < map_user_borrow_token_blockNum[msg.sender][tokenAddress].length; i++) {
-            block_interval = current_block_number - map_user_borrow_token_blockNum[msg.sender][tokenAddress][i];
-            uint user_borrowal = map_user_borrow_token_amount[msg.sender][tokenAddress];
+        for (uint i = 0; i < map_user_borrow_token_blockNum[msg.sender][usdc_address].length; i++) {
+            block_interval = current_block_number - map_user_borrow_token_blockNum[msg.sender][usdc_address][i];
+            uint user_borrowal = map_user_borrow_token_amount[msg.sender][usdc_address];
             for (uint j = 0; j < block_interval; j++) {
                 user_borrowal = user_borrowal * interest_18decimal / (10**18);
             }
-            map_user_borrow_token_amount[msg.sender][tokenAddress] = user_borrowal;
-            map_user_borrow_token_blockNum[msg.sender][tokenAddress][i] = current_block_number;
+            map_user_borrow_token_amount[msg.sender][usdc_address] = user_borrowal;
+            map_user_borrow_token_blockNum[msg.sender][usdc_address][i] = current_block_number;
         }
     }
 
     function borrow(address tokenAddress, uint256 amount) public {
+        require(tokenAddress == usdc_address, "no borrow option of ether");
         uint256 user_eth_deposit = map_user_deposit_token_amount[msg.sender][eth_address];
         uint256 user_usdc_deposit = map_user_deposit_token_amount[msg.sender][usdc_address];
-        uint256 user_eth_borrowed = map_user_borrow_token_amount[msg.sender][eth_address];
+
         uint256 user_usdc_borrowed = map_user_borrow_token_amount[msg.sender][usdc_address];
 
         updateOracle();
-        updateBorrowal(eth_address);
-        updateBorrowal(usdc_address);
+        updateBorrowal();
 
-        if(tokenAddress == usdc_address){
-            // step1: check how much user can borrow now;
-            // collateral's borrow amount limit: (collateral price / token_to_borrow price) * LTV
-            // subtract already borrowed amount
-            uint256 userUSDCLoanLimit = ((user_eth_deposit * eth_price * loan_to_value) / (usdc_price * 100)) - user_usdc_borrowed;
-            require(userUSDCLoanLimit >= amount, "not enough eth collateral");
+        // step1: check how much user can borrow now;
+        // collateral's borrow amount limit: (collateral price / token_to_borrow price) * LTV
+        // subtract already borrowed amount
+        uint256 userUSDCLoanLimit = ((user_eth_deposit * eth_price * loan_to_value) / (usdc_price * 100)) - user_usdc_borrowed;
+        require(userUSDCLoanLimit >= amount, "not enough eth collateral");
 
-            // step2: update borrow account book
-            map_user_borrow_token_amount[msg.sender][usdc_address] += amount;
-            map_user_borrow_token_blockNum[msg.sender][tokenAddress].push(block.number);
+        // step2: update borrow account book
+        map_user_borrow_token_amount[msg.sender][usdc_address] += amount;
+        map_user_borrow_token_blockNum[msg.sender][tokenAddress].push(block.number);
 
 
-            // step3: send user the token
-            usdc.approve(address(this), amount);
-            usdc.transferFrom(address(this), msg.sender, amount);
-        } else {
-            // step1
-            uint256 userETHLoanLimit = ((user_usdc_deposit * usdc_price * loan_to_value) / (eth_price * 100)) - user_eth_borrowed;
-            require(userETHLoanLimit >= amount, "not enough usdc collateral");
-
-            // step2
-            map_user_borrow_token_amount[msg.sender][eth_address] += amount;
-            map_user_borrow_token_blockNum[msg.sender][tokenAddress].push(block.number);
-
-            // step3
-            (bool sent, ) = (msg.sender).call{value: amount}("");
-        }
+        // step3: send user the token
+        usdc.approve(address(this), amount);
+        usdc.transferFrom(address(this), msg.sender, amount);
+        
     }
 
     // pay back one's borrowal. it can be partial
     function repay(address tokenAddress, uint256 amount) public {
         updateOracle();
-        updateBorrowal(eth_address);
-        updateBorrowal(usdc_address);
+        updateBorrowal();
 
-        if (tokenAddress == eth_address){
-            map_user_borrow_token_amount[msg.sender][eth_address] -= amount;
-        } else {
-            map_user_borrow_token_amount[msg.sender][usdc_address] -= amount;
-        }
+        map_user_borrow_token_amount[msg.sender][usdc_address] -= amount;
     }
 
     function liquidate(address user, address tokenAddress, uint256 amount) public {
@@ -156,16 +141,14 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
 
     function withdraw(address tokenAddress, uint256 amount) public {
         updateOracle();
-        updateBorrowal(eth_address);
-        updateBorrowal(usdc_address);
+        updateBorrowal();
         uint256 user_eth_deposit = map_user_deposit_token_amount[msg.sender][eth_address];
         uint256 user_usdc_deposit = map_user_deposit_token_amount[msg.sender][usdc_address];
-        uint256 user_eth_borrowed = map_user_borrow_token_amount[msg.sender][eth_address];
+
         uint256 user_usdc_borrowed = map_user_borrow_token_amount[msg.sender][usdc_address];
-        require(user_eth_deposit >= user_eth_borrowed);
         require(user_usdc_deposit >= user_usdc_borrowed);
 
-        uint256 user_total_price = eth_price * (user_eth_deposit - user_eth_borrowed) + usdc_price * (user_usdc_deposit - user_usdc_borrowed);
+        uint256 user_total_price = eth_price * (user_eth_deposit) + usdc_price * (user_usdc_deposit - user_usdc_borrowed);
         if (tokenAddress == eth_address){
             require(user_total_price >= amount * eth_price, "cannot withdraw over deposit");
         } else {
