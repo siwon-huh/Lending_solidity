@@ -3,22 +3,23 @@ pragma solidity ^0.8.13;
 
 //version 0.0.1 - 21/03/2023 13:13
 
-interface IPriceOracle {
-    function getPrice(address asset) external view returns (uint256);
-}
-contract DreamAcademyLending is IPriceOracle{
+import "./interface/IDreamAcademyLending.sol";
+import "./interface/IPriceOracle.sol";
+
+contract DreamAcademyLending is IDreamAcaemdyLending{
 
     IPriceOracle oracle;
     address asset;
+    address owner;
+    mapping(address => uint256) map_reserved_token_amount;
     constructor(IPriceOracle _oracle, address _asset) {
         oracle = _oracle;
         asset = _asset;
+        owner = msg.sender;
     }
-    function getPrice(address _asset) public view returns (uint256){
 
-    }
-    function initializeLendingProtocol(address) public payable {
-
+    function initializeLendingProtocol(address tokenAddress) public payable {
+        map_reserved_token_amount[tokenAddress] = msg.value;
     }
     function deposit(address tokenAddress, uint256 amount) public payable {
 
@@ -44,8 +45,5 @@ contract DreamAcademyLending is IPriceOracle{
     function getAccruedSupplyAmount(address _asset) public returns (uint256 accruedSupplyAmount) {
 
     }
-
-    receive() external payable {
-        // for ether receive
-    }
+    receive() external payable {}
 }
