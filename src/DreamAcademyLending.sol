@@ -2,22 +2,23 @@
 pragma solidity ^0.8.13;
 
 import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import {SafeMath} from "openzeppelin-contracts/contracts/utils/math/SafeMath.sol";
 import "./interface/IDreamAcademyLending.sol";
 import "./interface/IPriceOracle.sol";
 
 contract DreamAcademyLending is IDreamAcaemdyLending{
-
+    using SafeMath for uint256;
     IPriceOracle oracle;
     ERC20 usdc;
     address eth_address;
     address usdc_address;
     address owner;
-    mapping(address => uint256) map_total_reserved_token_amount;
+    mapping(address => uint256) map_total_deposit_token_amount;
     mapping(address => mapping(address => uint256)) map_user_deposit_token_amount;
     mapping(address => mapping(address => uint256)) map_user_deposit_token_blockNum;
 
-    mapping(address => mapping(address => uint256)) map_user_borrow_token_amount;
-    mapping(address => mapping(address => uint256)) map_user_borrow_token_blockNum;
+    mapping(address => uint256) map_user_borrow_usdc_amount;
+    mapping(address => uint256) map_user_borrow_usdc_blockNum;
 
     uint256 eth_price;
     uint256 usdc_price;
@@ -25,11 +26,12 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
     uint256 loan_to_value = 50;
     uint256 current_block_number;
     uint256 block_interval;
-    uint256 interest_18decimal = 1000000138819500339;
-    // uint256 interest_18decimal = 1000150000000000000;
+    uint256 interest_10decimal = 1000000139;
 
     uint256 liquidation_thershold = 75;
 
+
+    uint256 total_usdc_borrowal_principal;
 
 
     constructor(IPriceOracle _oracle, address _usdc) {
@@ -41,7 +43,7 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
     }
 
     function initializeLendingProtocol(address tokenAddress) public payable {
-        map_total_reserved_token_amount[tokenAddress] = msg.value;
+        map_total_deposit_token_amount[tokenAddress] = msg.value;
         usdc.transferFrom(msg.sender, address(this), msg.value);
     }
 
@@ -60,7 +62,7 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
 
             // update deposit account book
             map_user_deposit_token_amount[msg.sender][tokenAddress] += msg.value;
-            map_total_reserved_token_amount[tokenAddress] += msg.value;
+            map_total_deposit_token_amount[tokenAddress] += msg.value;
             map_user_deposit_token_blockNum[msg.sender][tokenAddress] = block.number;
 
 
@@ -75,7 +77,7 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
 
             // update deposit account book
             map_user_deposit_token_amount[msg.sender][tokenAddress] += amount;
-            map_total_reserved_token_amount[tokenAddress] += amount;
+            map_total_deposit_token_amount[tokenAddress] += amount;
             map_user_deposit_token_blockNum[msg.sender][tokenAddress] = block.number;
 
         }
@@ -89,11 +91,11 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
 
     function updateBorrowal() public {
         current_block_number = block.number;
-        block_interval = current_block_number - map_user_borrow_token_blockNum[msg.sender][usdc_address];
-        uint user_borrowal = map_user_borrow_token_amount[msg.sender][usdc_address];
-        user_borrowal = user_borrowal * interest_18decimal ** block_interval / (10**18) ** block_interval;
-        map_user_borrow_token_amount[msg.sender][usdc_address] = user_borrowal;
-        map_user_borrow_token_blockNum[msg.sender][usdc_address] = current_block_number;
+        block_interval = current_block_number - map_user_borrow_usdc_blockNum[msg.sender];
+        uint user_borrowal = map_user_borrow_usdc_amount[msg.sender];
+        user_borrowal = user_borrowal * interest_10decimal ** block_interval / (10**9) ** block_interval;
+        map_user_borrow_usdc_amount[msg.sender] = user_borrowal;
+        map_user_borrow_usdc_blockNum[msg.sender] = current_block_number;
     }
 
     function borrow(address tokenAddress, uint256 amount) public {
@@ -101,7 +103,7 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
         uint256 user_eth_deposit = map_user_deposit_token_amount[msg.sender][eth_address];
         uint256 user_usdc_deposit = map_user_deposit_token_amount[msg.sender][usdc_address];
 
-        uint256 user_usdc_borrowed = map_user_borrow_token_amount[msg.sender][usdc_address];
+        uint256 user_usdc_borrowed = map_user_borrow_usdc_amount[msg.sender];
 
         updateOracle();
         updateBorrowal();
@@ -113,14 +115,13 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
         require(userUSDCLoanLimit >= amount, "not enough eth collateral");
 
         // step2: update borrow account book
-        map_user_borrow_token_amount[msg.sender][usdc_address] += amount;
-        map_user_borrow_token_blockNum[msg.sender][tokenAddress] = block.number;
-
+        map_user_borrow_usdc_amount[msg.sender] += amount;
+        map_user_borrow_usdc_blockNum[msg.sender] = block.number;
 
         // step3: send user the token
         usdc.approve(address(this), amount);
         usdc.transferFrom(address(this), msg.sender, amount);
-        
+        total_usdc_borrowal_principal += amount;
     }
 
     // pay back one's borrowal. it can be partial
@@ -128,7 +129,7 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
         updateOracle();
         updateBorrowal();
 
-        map_user_borrow_token_amount[msg.sender][usdc_address] -= amount;
+        map_user_borrow_usdc_amount[msg.sender] -= amount;
     }
 
     function liquidate(address user, address tokenAddress, uint256 amount) public {
@@ -139,10 +140,11 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
     function withdraw(address tokenAddress, uint256 amount) public {
         updateOracle();
         updateBorrowal();
+        uint256 user_interest = getAccruedSupplyAmount(usdc_address);
         uint256 user_eth_deposit = map_user_deposit_token_amount[msg.sender][eth_address];
         uint256 user_usdc_deposit = map_user_deposit_token_amount[msg.sender][usdc_address];
 
-        uint256 user_usdc_borrowed = map_user_borrow_token_amount[msg.sender][usdc_address];
+        uint256 user_usdc_borrowed = map_user_borrow_usdc_amount[msg.sender];
 
         // usdc_price끼리 묶으면 underflow를 유발할 수 있음ㅜㅜ
         require(eth_price * user_eth_deposit + usdc_price * user_usdc_deposit >= usdc_price * user_usdc_borrowed, "not enough deposit");
@@ -157,7 +159,7 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
         }
 
         
-        map_user_deposit_token_amount[msg.sender][tokenAddress] -= amount;
+        // map_user_deposit_token_amount[msg.sender][tokenAddress] -= amount;
         if (tokenAddress == eth_address){
             (bool sent, ) = (msg.sender).call{value: amount}("");
         } else {
@@ -166,12 +168,20 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
     }
 
     function getAccruedSupplyAmount(address tokenAddress) public returns (uint256 accruedSupplyAmount) {
+        updateOracle();
         current_block_number = block.number;
-        block_interval = current_block_number - map_user_borrow_token_blockNum[msg.sender][usdc_address];
-        uint user_borrowal = map_user_borrow_token_amount[msg.sender][usdc_address];
-        user_borrowal = user_borrowal * interest_18decimal ** block_interval / (10**18) ** block_interval;
+        uint256 block_interval = (current_block_number - map_user_borrow_usdc_blockNum[msg.sender]) / (7200 * 500);
+        
+        uint256 five_hundred_day_interest = 1648309;
+        uint256 total_usdc_borrowal_interest = ((total_usdc_borrowal_principal * usdc_price)* (five_hundred_day_interest) ** block_interval / 1000000 ** block_interval) - total_usdc_borrowal_principal;
+        
+        uint256 user_deposit_price_in_usdc = map_user_deposit_token_amount[msg.sender][usdc_address] * usdc_price + map_user_deposit_token_amount[msg.sender][eth_address] * eth_price;
+        uint256 total_deposit_price = map_total_deposit_token_amount[usdc_address] * usdc_price + map_total_deposit_token_amount[eth_address] * eth_price;
+
+        accruedSupplyAmount = total_usdc_borrowal_interest / user_deposit_price_in_usdc * total_deposit_price;
+        
     }
-    
+
 
     receive() external payable {}
 }
