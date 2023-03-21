@@ -138,87 +138,87 @@ contract Testx is Test {
         vm.stopPrank();
     }
 
-    // function testBorrowWithInsufficientSupplyFails() external {
-    //     supplySmallEtherDepositUser2();
-    //     dreamOracle.setPrice(address(0x0), 99999999999 ether);
+    function testBorrowWithInsufficientSupplyFails() external {
+        supplySmallEtherDepositUser2();
+        dreamOracle.setPrice(address(0x0), 99999999999 ether);
 
-    //     vm.startPrank(user2);
-    //     {
-    //         (bool success,) = address(lending).call(
-    //             abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 1000 ether)
-    //         );
-    //         assertFalse(success);
-    //         assertTrue(usdc.balanceOf(user2) == 0 ether);
-    //     }
-    //     vm.stopPrank();
-    // }
+        vm.startPrank(user2);
+        {
+            (bool success,) = address(lending).call(
+                abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 1000 ether)
+            );
+            assertFalse(success);
+            assertTrue(usdc.balanceOf(user2) == 0 ether);
+        }
+        vm.stopPrank();
+    }
 
-    // function testBorrowWithSufficientCollateralSucceeds() external {
-    //     supplyUSDCDepositUser1();
-    //     supplyEtherDepositUser2();
+    function testBorrowWithSufficientCollateralSucceeds() external {
+        supplyUSDCDepositUser1();
+        supplyEtherDepositUser2();
 
-    //     vm.startPrank(user2);
-    //     {
-    //         lending.borrow(address(usdc), 1000 ether);
-    //         assertTrue(usdc.balanceOf(user2) == 1000 ether);
-    //     }
-    //     vm.stopPrank();
-    // }
+        vm.startPrank(user2);
+        {
+            lending.borrow(address(usdc), 1000 ether);
+            assertTrue(usdc.balanceOf(user2) == 1000 ether);
+        }
+        vm.stopPrank();
+    }
 
-    // function testBorrowWithSufficientSupplySucceeds() external {
-    //     supplyUSDCDepositUser1();
-    //     supplyEtherDepositUser2();
+    function testBorrowWithSufficientSupplySucceeds() external {
+        supplyUSDCDepositUser1();
+        supplyEtherDepositUser2();
 
-    //     vm.startPrank(user2);
-    //     {
-    //         lending.borrow(address(usdc), 1000 ether);
-    //     }
-    //     vm.stopPrank();
-    // }
+        vm.startPrank(user2);
+        {
+            lending.borrow(address(usdc), 1000 ether);
+        }
+        vm.stopPrank();
+    }
 
-    // function testBorrowMultipleWithInsufficientCollateralFails() external {
-    //     supplyUSDCDepositUser1();
-    //     supplySmallEtherDepositUser2();
+    function testBorrowMultipleWithInsufficientCollateralFails() external {
+        supplyUSDCDepositUser1();
+        supplySmallEtherDepositUser2();
 
-    //     dreamOracle.setPrice(address(0x0), 3000 ether);
+        dreamOracle.setPrice(address(0x0), 3000 ether);
 
-    //     vm.startPrank(user2);
-    //     {
-    //         (bool success,) = address(lending).call(
-    //             abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 1000 ether)
-    //         );
-    //         assertTrue(success);
-    //         (success,) = address(lending).call(
-    //             abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 1000 ether)
-    //         );
-    //         assertFalse(success);
+        vm.startPrank(user2);
+        {
+            (bool success,) = address(lending).call(
+                abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 1000 ether)
+            );
+            assertTrue(success);
+            (success,) = address(lending).call(
+                abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 1000 ether)
+            );
+            assertFalse(success);
 
-    //         assertTrue(usdc.balanceOf(user2) == 1000 ether);
-    //     }
-    //     vm.stopPrank();
-    // }
+            assertTrue(usdc.balanceOf(user2) == 1000 ether);
+        }
+        vm.stopPrank();
+    }
 
-    // function testBorrowMultipleWithSufficientCollateralSucceeds() external {
-    //     supplyUSDCDepositUser1();
-    //     supplySmallEtherDepositUser2();
+    function testBorrowMultipleWithSufficientCollateralSucceeds() external {
+        supplyUSDCDepositUser1();
+        supplySmallEtherDepositUser2();
 
-    //     dreamOracle.setPrice(address(0x0), 4000 ether);
+        dreamOracle.setPrice(address(0x0), 4000 ether);
 
-    //     vm.startPrank(user2);
-    //     {
-    //         (bool success,) = address(lending).call(
-    //             abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 1000 ether)
-    //         );
-    //         assertTrue(success);
-    //         (success,) = address(lending).call(
-    //             abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 1000 ether)
-    //         );
-    //         assertTrue(success);
+        vm.startPrank(user2);
+        {
+            (bool success,) = address(lending).call(
+                abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 1000 ether)
+            );
+            assertTrue(success);
+            (success,) = address(lending).call(
+                abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 1000 ether)
+            );
+            assertTrue(success);
 
-    //         assertTrue(usdc.balanceOf(user2) == 2000 ether);
-    //     }
-    //     vm.stopPrank();
-    // }
+            assertTrue(usdc.balanceOf(user2) == 2000 ether);
+        }
+        vm.stopPrank();
+    }
 
     // function testBorrowWithSufficientCollateralAfterRepaymentSucceeds() external {
     //     supplyUSDCDepositUser1();

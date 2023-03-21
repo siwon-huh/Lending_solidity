@@ -8,35 +8,69 @@ import "./interface/IPriceOracle.sol";
 contract DreamAcademyLending is IDreamAcaemdyLending{
 
     IPriceOracle oracle;
-    ERC20 asset;
-    address asset_address;
+    ERC20 usdc;
+    address eth_address;
+    address usdc_address;
     address owner;
-    mapping(address => uint256) map_reserved_token_amount;
-    constructor(IPriceOracle _oracle, address _asset) {
+    mapping(address => uint256) map_total_reserved_token_amount;
+    mapping(address => mapping(address => uint256)) map_user_deposit_token_amount;
+    mapping(address => mapping(address => uint256)) map_user_borrow_token_amount;
+
+    uint256 eth_price;
+    uint256 usdc_price;
+
+    // uint256 LTV = 
+
+
+    constructor(IPriceOracle _oracle, address _usdc) {
         oracle = _oracle;
-        asset_address = _asset;
-        asset = ERC20(asset_address);
+        eth_address = address(0x00);
+        usdc_address = _usdc;
+        usdc = ERC20(usdc_address);
         owner = msg.sender;
     }
 
     function initializeLendingProtocol(address tokenAddress) public payable {
-        map_reserved_token_amount[tokenAddress] = msg.value;
-        asset.transferFrom(msg.sender, address(this), msg.value);
+        map_total_reserved_token_amount[tokenAddress] = msg.value;
+        usdc.transferFrom(msg.sender, address(this), msg.value);
     }
 
     //clear
     function deposit(address tokenAddress, uint256 amount) public payable {
-        if (tokenAddress != asset_address){
+        if (tokenAddress != usdc_address){
             require(msg.value != 0, "ETH deposit: msg.value should not be 0");
             require(msg.value == amount, "ETH deposit: msg.value should match amount");
+            map_total_reserved_token_amount[tokenAddress] += msg.value;
+            map_user_deposit_token_amount[msg.sender][tokenAddress] += msg.value;
         } else {
-            require(asset.allowance(msg.sender, address(this)) >= amount, "USDC deposit: not enough allowance");
-            asset.transferFrom(msg.sender, address(this), amount);
+            require(usdc.allowance(msg.sender, address(this)) >= amount, "USDC deposit: not enough allowance");
+            usdc.transferFrom(msg.sender, address(this), amount);
+            map_total_reserved_token_amount[tokenAddress] += amount;
+            map_user_deposit_token_amount[msg.sender][tokenAddress] += amount;
         }
     }
 
-    function borrow(address tokenAddress, uint256 amount) public {
+    function updateOracle() public{
+        eth_price = oracle.getPrice(eth_address);
+        usdc_price = oracle.getPrice(usdc_address);
+    }
 
+    function borrow(address tokenAddress, uint256 amount) public {
+        uint256 user_eth_deposit = map_user_deposit_token_amount[msg.sender][eth_address];
+        uint256 user_usdc_deposit = map_user_deposit_token_amount[msg.sender][usdc_address];
+
+        updateOracle();
+
+        if(tokenAddress == usdc_address){
+            require(user_eth_deposit * eth_price >= amount * usdc_price, "not enough collateral");
+
+            map_user_borrow_token_amount[msg.sender][tokenAddress] += amount;
+            usdc.approve(address(this), amount);
+            usdc.transferFrom(address(this), msg.sender, amount);
+        } else {
+            map_user_borrow_token_amount[msg.sender][tokenAddress] += amount;
+            (bool sent, ) = msg.sender.call{value: amount}("");
+        }
     }
 
     function repay(address tokenAddress, uint256 amount) public {
