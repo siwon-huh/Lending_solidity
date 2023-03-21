@@ -375,33 +375,33 @@ contract Testx is Test {
         vm.stopPrank();
     }
 
-    // function testWithdrawLockedCollateralAfterBorrowSucceeds() external {
-    //     supplyUSDCDepositUser1();
-    //     supplySmallEtherDepositUser2();
+    function testWithdrawLockedCollateralAfterBorrowSucceeds() external {
+        supplyUSDCDepositUser1();
+        supplySmallEtherDepositUser2();
 
-    //     dreamOracle.setPrice(address(0x0), 4000 ether); // 4000 usdc
+        dreamOracle.setPrice(address(0x0), 4000 ether); // 4000 usdc
 
-    //     vm.startPrank(user2);
-    //     {
-    //         (bool success,) = address(lending).call(
-    //             abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 1000 ether)
-    //         );
-    //         assertTrue(success);
+        vm.startPrank(user2);
+        {
+            (bool success,) = address(lending).call(
+                abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 1000 ether)
+            );
+            assertTrue(success);
 
-    //         (success,) = address(lending).call(
-    //             abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 1000 ether)
-    //         );
-    //         assertTrue(success);
+            (success,) = address(lending).call(
+                abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 1000 ether)
+            );
+            assertTrue(success);
 
-    //         // 2000 / (4000 - 1333) * 100 = 74.xxxx
-    //         // LT = 75%
-    //         (success,) = address(lending).call(
-    //             abi.encodeWithSelector(DreamAcademyLending.withdraw.selector, address(0x0), 1 ether * 1333 / 4000)
-    //         );
-    //         assertTrue(success);
-    //     }
-    //     vm.stopPrank();
-    // }
+            // 2000 / (4000 - 1333) * 100 = 74.xxxx
+            // LT = 75%
+            (success,) = address(lending).call(
+                abi.encodeWithSelector(DreamAcademyLending.withdraw.selector, address(0x0), 1 ether * 1333 / 4000)
+            );
+            assertTrue(success);
+        }
+        vm.stopPrank();
+    }
 
     // function testWithdrawLockedCollateralAfterInterestAccuredFails() external {
     //     supplyUSDCDepositUser1();

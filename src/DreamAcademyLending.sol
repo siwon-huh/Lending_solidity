@@ -146,13 +146,13 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
         uint256 user_usdc_deposit = map_user_deposit_token_amount[msg.sender][usdc_address];
 
         uint256 user_usdc_borrowed = map_user_borrow_token_amount[msg.sender][usdc_address];
-        require(user_usdc_deposit >= user_usdc_borrowed);
 
-        uint256 user_total_price = eth_price * (user_eth_deposit) + usdc_price * (user_usdc_deposit - user_usdc_borrowed);
+        uint256 user_total_price = eth_price * user_eth_deposit + usdc_price * user_usdc_deposit - usdc_price * user_usdc_borrowed;
+
         if (tokenAddress == eth_address){
-            require(user_total_price >= amount * eth_price, "cannot withdraw over deposit");
+            require((user_total_price - amount * eth_price) * 100 <= liquidation_thershold * user_total_price, "cannot withdraw over liquidity threshold");
         } else {
-            require(user_total_price >= amount * usdc_price, "cannot withdraw over deposit");
+            require((user_total_price - amount * usdc_price) * 100 <= liquidation_thershold * user_total_price, "cannot withdraw over liquidity threshold");
         }
 
 
