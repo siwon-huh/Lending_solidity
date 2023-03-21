@@ -26,6 +26,7 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
     uint256 current_block_number;
     uint256 block_interval;
     uint256 interest_18decimal = 1000000138819500339;
+    // uint256 interest_18decimal = 1000190000000000000;
 
     uint256 liquidation_thershold = 75;
 
@@ -147,15 +148,19 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
 
         uint256 user_usdc_borrowed = map_user_borrow_token_amount[msg.sender][usdc_address];
 
+        // usdc_price끼리 묶으면 underflow를 유발할 수 있음ㅜㅜ
+        require(eth_price * user_eth_deposit + usdc_price * user_usdc_deposit >= usdc_price * user_usdc_borrowed, "not enough deposit");
         uint256 user_total_price = eth_price * user_eth_deposit + usdc_price * user_usdc_deposit - usdc_price * user_usdc_borrowed;
 
         if (tokenAddress == eth_address){
+            require(user_total_price >= amount * eth_price, "not enough balance");
             require((user_total_price - amount * eth_price) * 100 <= liquidation_thershold * user_total_price, "cannot withdraw over liquidity threshold");
         } else {
+            require(user_total_price >= amount * usdc_price, "not enough balance");
             require((user_total_price - amount * usdc_price) * 100 <= liquidation_thershold * user_total_price, "cannot withdraw over liquidity threshold");
         }
 
-
+        
         map_user_deposit_token_amount[msg.sender][tokenAddress] -= amount;
         if (tokenAddress == eth_address){
             (bool sent, ) = (msg.sender).call{value: amount}("");
