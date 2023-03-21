@@ -133,7 +133,32 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
     }
 
     function liquidate(address user, address tokenAddress, uint256 amount) public {
-
+        updateOracle();
+        updateBorrowal();
+        uint256 user_total_deposit = map_user_deposit_token_amount[user][eth_address] * eth_price+ map_user_deposit_token_amount[user][usdc_address] + usdc_price;
+        uint256 user_total_borrow = map_user_borrow_usdc_amount[user] * usdc_price;
+        require(user_total_deposit * liquidation_thershold < user_total_borrow * 100, "liquidation not yet");
+        uint _amount;
+        if(map_user_borrow_usdc_amount[user] < 100){
+            _amount = amount;
+        } else {
+            if (tokenAddress == eth_address){
+                _amount = amount * eth_price;
+            } else {
+                _amount = amount * usdc_price;
+            }
+            require(_amount <= user_total_deposit / 4);
+        }
+        if (user_total_deposit * liquidation_thershold < user_total_borrow * 100){
+            // liquidate token to get usdc
+            if (tokenAddress == eth_address){
+                (bool sent, ) = (user).call{value: amount}("");
+                map_user_deposit_token_amount[user][tokenAddress] -= amount;
+            } else {
+                bool result = usdc.transferFrom(user, address(this), amount);
+                map_user_deposit_token_amount[user][tokenAddress] -= amount;
+            }
+        }
     }
 
 
@@ -159,7 +184,7 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
         }
 
         
-        // map_user_deposit_token_amount[msg.sender][tokenAddress] -= amount;
+        map_user_deposit_token_amount[msg.sender][tokenAddress] -= amount;
         if (tokenAddress == eth_address){
             (bool sent, ) = (msg.sender).call{value: amount}("");
         } else {
