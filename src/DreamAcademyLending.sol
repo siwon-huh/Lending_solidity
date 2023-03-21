@@ -14,10 +14,10 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
     address owner;
     mapping(address => uint256) map_total_reserved_token_amount;
     mapping(address => mapping(address => uint256)) map_user_deposit_token_amount;
+    mapping(address => mapping(address => uint256[])) map_user_deposit_token_blockNum;
+
     mapping(address => mapping(address => uint256)) map_user_borrow_token_amount;
-    mapping(address => mapping(address => uint256)) map_user_borrow_token_index;
     mapping(address => mapping(address => uint256[])) map_user_borrow_token_blockNum;
-    mapping(address => mapping(address => mapping(uint256 => uint256))) map_user_borrow_token_blockNum_amount;
 
     uint256 eth_price;
     uint256 usdc_price;
@@ -58,6 +58,7 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
             // update deposit account book
             map_user_deposit_token_amount[msg.sender][tokenAddress] += msg.value;
             map_total_reserved_token_amount[tokenAddress] += msg.value;
+            map_user_deposit_token_blockNum[msg.sender][tokenAddress].push(block.number);
 
 
         } else {
@@ -72,6 +73,7 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
             // update deposit account book
             map_user_deposit_token_amount[msg.sender][tokenAddress] += amount;
             map_total_reserved_token_amount[tokenAddress] += amount;
+            map_user_deposit_token_blockNum[msg.sender][tokenAddress].push(block.number);
 
         }
     }
@@ -87,7 +89,7 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
         for (uint i = 0; i < map_user_borrow_token_blockNum[msg.sender][tokenAddress].length; i++) {
             block_interval = current_block_number - map_user_borrow_token_blockNum[msg.sender][tokenAddress][i];
             uint user_borrowal = map_user_borrow_token_amount[msg.sender][tokenAddress];
-            for (uint i = 0; i < block_interval; i++) {
+            for (uint j = 0; j < block_interval; j++) {
                 user_borrowal = user_borrowal * interest_18decimal / (10**18);
             }
             map_user_borrow_token_amount[msg.sender][tokenAddress] = user_borrowal;
@@ -114,10 +116,7 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
 
             // step2: update borrow account book
             map_user_borrow_token_amount[msg.sender][usdc_address] += amount;
-
-
             map_user_borrow_token_blockNum[msg.sender][tokenAddress].push(block.number);
-            map_user_borrow_token_blockNum_amount[msg.sender][tokenAddress][block.number] = amount;
 
 
             // step3: send user the token
@@ -130,9 +129,7 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
 
             // step2
             map_user_borrow_token_amount[msg.sender][eth_address] += amount;
-
             map_user_borrow_token_blockNum[msg.sender][tokenAddress].push(block.number);
-            map_user_borrow_token_blockNum_amount[msg.sender][tokenAddress][block.number] = amount;
 
             // step3
             (bool sent, ) = (msg.sender).call{value: amount}("");
@@ -157,8 +154,31 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
     }
 
 
-    function withdraw(address tokenAddress, uint256 amount) external {
+    function withdraw(address tokenAddress, uint256 amount) public {
+        updateOracle();
+        updateBorrowal(eth_address);
+        updateBorrowal(usdc_address);
+        uint256 user_eth_deposit = map_user_deposit_token_amount[msg.sender][eth_address];
+        uint256 user_usdc_deposit = map_user_deposit_token_amount[msg.sender][usdc_address];
+        uint256 user_eth_borrowed = map_user_borrow_token_amount[msg.sender][eth_address];
+        uint256 user_usdc_borrowed = map_user_borrow_token_amount[msg.sender][usdc_address];
+        require(user_eth_deposit >= user_eth_borrowed);
+        require(user_usdc_deposit >= user_usdc_borrowed);
 
+        uint256 user_total_price = eth_price * (user_eth_deposit - user_eth_borrowed) + usdc_price * (user_usdc_deposit - user_usdc_borrowed);
+        if (tokenAddress == eth_address){
+            require(user_total_price >= amount * eth_price, "cannot withdraw over deposit");
+        } else {
+            require(user_total_price >= amount * usdc_price, "cannot withdraw over deposit");
+        }
+
+
+        map_user_deposit_token_amount[msg.sender][tokenAddress] -= amount;
+        if (tokenAddress == eth_address){
+            (bool sent, ) = (msg.sender).call{value: amount}("");
+        } else {
+            usdc.transferFrom(address(this), msg.sender, amount);
+        }
     }
 
     function getAccruedSupplyAmount(address tokenAddress) public returns (uint256 accruedSupplyAmount) {
