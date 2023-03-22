@@ -39,6 +39,7 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
 
 
     uint256 liquidation_thershold = 75;
+    mapping(address => uint256) user_total_liquidate;
 
 
     // uint256 total_usdc_borrowal_principal;
@@ -197,19 +198,21 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
         uint user_deposit = map_user_deposit_token_amount[user][eth_address] * eth_price / (10**18);
         console.log(user_deposit);
         // amount는 usdc의 양으로 들어온다.
-        if (user_deposit > 100 ether){
+        if (user_deposit >= 100 ether){
             // 100 이상이면 liquidation에 제한이 걸린다.
             console.log(amount* 4);
-            require(amount * 4 <= user_borrowal, "only 25% can be liquidate at once");
+            require((user_total_liquidate[user] + amount) * 4 <= user_borrowal, "only 25% can be liquidate at once");
             // 청산이 되면 유저의 deposit이 amount의 가치만큼 깎이고 usdc의 풀이 늘어난다.
             map_user_deposit_token_amount[user][eth_address] -= amount / eth_price;
             usdc.approve(user, amount);
             usdc.transferFrom(user, address(this), amount);
+            user_total_liquidate[user] += amount;
         } else {
             // 100 이하의 포지션이면 모든 포지션 청산이 가능하다.
             map_user_deposit_token_amount[user][eth_address] -= amount / eth_price;
             usdc.approve(user, amount);
             usdc.transferFrom(user, address(this), amount);
+            user_total_liquidate[user] += amount;
         }
 
     }
