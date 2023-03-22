@@ -27,6 +27,7 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
     mapping(address => uint256) map_user_borrow_interest_usdc_amount;
     mapping(address => uint256) map_user_borrow_principal_with_interest_usdc_amount;
     mapping(address => uint256) map_user_borrow_usdc_blockNum;
+    address usdc_borrow_user;
 
     uint256 eth_price;
     uint256 usdc_price;
@@ -36,7 +37,7 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
     uint256 block_interval;
     uint256 interest_10decimal = 1000000139;
 
-
+    uint256 subtime_list;
 
     uint256 liquidation_thershold = 75;
     mapping(address => uint256) user_total_liquidate;
@@ -157,6 +158,7 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
         usdc.transferFrom(address(this), msg.sender, amount);
         // total_usdc_borrowal_principal += amount;
         usdc_total_borrowal += amount;
+        usdc_borrow_user = msg.sender;
     }
 
     // 유져의 빚 상태를 불러온다.
@@ -270,13 +272,13 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
         // from updateInterest
         current_block_number = block.number;
         // 이자는 원금에 대해 기간만큼 붙는다.
-        uint256 user_borrowal = map_user_borrow_principal_usdc_amount[msg.sender];
+        uint256 user_borrowal = map_user_borrow_principal_usdc_amount[usdc_borrow_user];
 
-        uint256 block_interval = current_block_number - map_user_borrow_usdc_blockNum[msg.sender];
+        uint256 block_interval = current_block_number - map_user_borrow_usdc_blockNum[usdc_borrow_user];
         uint256 user_interest;
         // 시간을 구한다.
         if (block_interval > 7200 * 100){
-            block_interval = (current_block_number - map_user_borrow_usdc_blockNum[msg.sender]) / (7200 * 500);
+            block_interval = (current_block_number - map_user_borrow_usdc_blockNum[usdc_borrow_user]) / (7200 * 500);
             uint256 five_hundred_day_interest = 1648309416;
             // 이자 = 원금 * (500일 이자 ** 500일 단위 간격) - 원금
             user_interest = user_borrowal * five_hundred_day_interest ** block_interval / (10**9) ** block_interval - user_borrowal;
@@ -292,6 +294,11 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
 
     }
 
+    function getSubInterest(uint timestamp) public returns (uint256 subInterest){
+
+
+
+    }
 
     receive() external payable {}
 }
