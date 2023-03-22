@@ -188,9 +188,10 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
         updateOracle();
         updateInterest(block.number);
         require(UnHealthyLoan(user), "the loan is healthy. you cannot liquidate him.");
-
+        
         // 유저가 빌린 돈을 일단 계산한다. debt를 넘어가는 liquidation은 불가능하다.
-        uint user_borrowal = map_user_borrow_principal_with_interest_usdc_amount[user] * usdc_price;
+        uint256 user_borrowal = getUserTotalDebt(user);
+        // uint user_borrowal = map_user_borrow_principal_with_interest_usdc_amount[user] * usdc_price;
 
         // 유저의 담보가치를 계산한다. 담보의 1/4까지만 한번에 청산 가능하다.
         uint user_deposit = map_user_deposit_token_amount[user][eth_address] * eth_price;
@@ -198,7 +199,7 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
         // amount는 usdc의 양으로 들어온다.
         if (user_deposit > 100 ether){
             // 100 이상이면 liquidation에 제한이 걸린다.
-            require(amount * 4 <= user_deposit, "only 25% can be liquidate at once");
+            require(amount * 4 <= user_deposit * liquidation_thershold / 100, "only 25% can be liquidate at once");
             // 청산이 되면 유저의 deposit이 amount의 가치만큼 깎이고 usdc의 풀이 늘어난다.
             map_user_deposit_token_amount[user][eth_address] -= amount / eth_price;
             usdc.approve(user, amount);
@@ -210,32 +211,6 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
             usdc.transferFrom(user, address(this), amount);
         }
 
-
-
-        // uint256 user_total_deposit = map_user_deposit_token_amount[user][eth_address] * eth_price+ map_user_deposit_token_amount[user][usdc_address] + usdc_price;
-        // uint256 user_total_borrow = map_user_borrow_principal_usdc_amount[user] * usdc_price;
-        // require(user_total_deposit * liquidation_thershold < user_total_borrow * 100, "liquidation not yet");
-        // uint _amount;
-        // if(map_user_borrow_principal_usdc_amount[user] < 100){
-        //     _amount = amount;
-        // } else {
-        //     if (tokenAddress == eth_address){
-        //         _amount = amount * eth_price;
-        //     } else {
-        //         _amount = amount * usdc_price;
-        //     }
-        //     require(_amount <= user_total_deposit / 4);
-        // }
-        // if (user_total_deposit * liquidation_thershold < user_total_borrow * 100){
-        //     // liquidate token to get usdc
-        //     if (tokenAddress == eth_address){
-        //         (bool sent, ) = (user).call{value: amount}("");
-        //         map_user_deposit_token_amount[user][tokenAddress] -= amount;
-        //     } else {
-        //         bool result = usdc.transferFrom(user, address(this), amount);
-        //         map_user_deposit_token_amount[user][tokenAddress] -= amount;
-        //     }
-        // }
     }
  
 
@@ -272,13 +247,18 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
 
     function UnHealthyLoan(address user) public returns (bool unhealth){
         // 담보의 가치를 계산한다.
+        updateOracle();
+        updateInterest(block.number);
         uint256 user_collateral = map_user_deposit_token_amount[user][eth_address] * eth_price;
-        uint256 user_debt = getUserTotalDebt(user);
+        uint256 user_debt = getUserTotalDebt(user) * (10**18);
+        console.log(user_collateral * 3/4);
+        console.log(user_debt);
         if(user_collateral * liquidation_thershold / 100 < user_debt) {
             unhealth = true;
         } else {
             unhealth = false;
         }
+        console.log(unhealth);
     }
 
     function getAccruedSupplyAmount(address tokenAddress) public returns (uint256 accruedSupplyAmount) {
