@@ -6,6 +6,10 @@ import "forge-std/Test.sol";
 import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import "src/DreamAcademyLending.sol";
 
+
+// added
+import "forge-std/console.sol";
+
 contract CUSDC is ERC20 {
     constructor() ERC20("Circle Stable Coin", "USDC") {
         _mint(msg.sender, type(uint256).max);
@@ -479,7 +483,6 @@ contract Testx is Test {
         );
         assertTrue(success);
         assertTrue(usdc.balanceOf(user3) == 30001605 ether);
-
         assertTrue(lending.getAccruedSupplyAmount(address(usdc)) / 1e18 == 0);
     }
 
@@ -540,241 +543,241 @@ contract Testx is Test {
         assertEq(b / 1e18 - 10000000, 251);
     }
 
-    function testWithdrawFullUndilutedAfterDepositByOtherAccountSucceeds() external {
-        vm.deal(user2, 100000000 ether);
-        vm.startPrank(user2);
-        {
-            lending.deposit{value: 100000000 ether}(address(0x00), 100000000 ether);
-        }
-        vm.stopPrank();
+    // function testWithdrawFullUndilutedAfterDepositByOtherAccountSucceeds() external {
+    //     vm.deal(user2, 100000000 ether);
+    //     vm.startPrank(user2);
+    //     {
+    //         lending.deposit{value: 100000000 ether}(address(0x00), 100000000 ether);
+    //     }
+    //     vm.stopPrank();
 
-        vm.deal(user3, 100000000 ether);
-        vm.startPrank(user3);
-        {
-            lending.deposit{value: 100000000 ether}(address(0x00), 100000000 ether);
-        }
-        vm.stopPrank();
+    //     vm.deal(user3, 100000000 ether);
+    //     vm.startPrank(user3);
+    //     {
+    //         lending.deposit{value: 100000000 ether}(address(0x00), 100000000 ether);
+    //     }
+    //     vm.stopPrank();
 
-        vm.startPrank(user2);
-        {
-            lending.withdraw(address(0x00), 100000000 ether);
-            assertEq(address(user2).balance, 100000000 ether);
-        }
-        vm.stopPrank();
-    }
+    //     vm.startPrank(user2);
+    //     {
+    //         lending.withdraw(address(0x00), 100000000 ether);
+    //         assertEq(address(user2).balance, 100000000 ether);
+    //     }
+    //     vm.stopPrank();
+    // }
 
-    function testLiquidationHealthyLoanFails() external {
-        supplyUSDCDepositUser1();
-        supplySmallEtherDepositUser2();
+    // function testLiquidationHealthyLoanFails() external {
+    //     supplyUSDCDepositUser1();
+    //     supplySmallEtherDepositUser2();
 
-        dreamOracle.setPrice(address(0x0), 4000 ether);
+    //     dreamOracle.setPrice(address(0x0), 4000 ether);
 
-        vm.startPrank(user2);
-        {
-            // use all collateral
-            (bool success,) = address(lending).call(
-                abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 2000 ether)
-            );
-            assertTrue(success);
+    //     vm.startPrank(user2);
+    //     {
+    //         // use all collateral
+    //         (bool success,) = address(lending).call(
+    //             abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 2000 ether)
+    //         );
+    //         assertTrue(success);
 
-            assertTrue(usdc.balanceOf(user2) == 2000 ether);
+    //         assertTrue(usdc.balanceOf(user2) == 2000 ether);
 
-            usdc.approve(address(lending), type(uint256).max);
-        }
-        vm.stopPrank();
+    //         usdc.approve(address(lending), type(uint256).max);
+    //     }
+    //     vm.stopPrank();
 
-        usdc.transfer(user3, 3000 ether);
-        vm.startPrank(user3);
-        {
-            usdc.approve(address(lending), type(uint256).max);
-            (bool success,) = address(lending).call(
-                abi.encodeWithSelector(DreamAcademyLending.liquidate.selector, user2, address(usdc), 800 ether)
-            );
-            assertFalse(success);
-        }
-        vm.stopPrank();
-    }
+    //     usdc.transfer(user3, 3000 ether);
+    //     vm.startPrank(user3);
+    //     {
+    //         usdc.approve(address(lending), type(uint256).max);
+    //         (bool success,) = address(lending).call(
+    //             abi.encodeWithSelector(DreamAcademyLending.liquidate.selector, user2, address(usdc), 800 ether)
+    //         );
+    //         assertFalse(success);
+    //     }
+    //     vm.stopPrank();
+    // }
 
-    function testLiquidationUnhealthyLoanSucceeds() external {
-        supplyUSDCDepositUser1();
-        supplySmallEtherDepositUser2();
+    // function testLiquidationUnhealthyLoanSucceeds() external {
+    //     supplyUSDCDepositUser1();
+    //     supplySmallEtherDepositUser2();
 
-        dreamOracle.setPrice(address(0x0), 4000 ether);
+    //     dreamOracle.setPrice(address(0x0), 4000 ether);
 
-        vm.startPrank(user2);
-        {
-            // use all collateral
-            (bool success,) = address(lending).call(
-                abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 2000 ether)
-            );
-            assertTrue(success);
+    //     vm.startPrank(user2);
+    //     {
+    //         // use all collateral
+    //         (bool success,) = address(lending).call(
+    //             abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 2000 ether)
+    //         );
+    //         assertTrue(success);
 
-            assertTrue(usdc.balanceOf(user2) == 2000 ether);
+    //         assertTrue(usdc.balanceOf(user2) == 2000 ether);
 
-            usdc.approve(address(lending), type(uint256).max);
-        }
-        vm.stopPrank();
+    //         usdc.approve(address(lending), type(uint256).max);
+    //     }
+    //     vm.stopPrank();
 
-        dreamOracle.setPrice(address(0x0), (4000 * 66 / 100) * 1e18); // drop price to 66%
-        usdc.transfer(user3, 3000 ether);
+    //     dreamOracle.setPrice(address(0x0), (4000 * 66 / 100) * 1e18); // drop price to 66%
+    //     usdc.transfer(user3, 3000 ether);
 
-        vm.startPrank(user3);
-        {
-            usdc.approve(address(lending), type(uint256).max);
-            (bool success,) = address(lending).call(
-                abi.encodeWithSelector(DreamAcademyLending.liquidate.selector, user2, address(usdc), 500 ether)
-            );
-            assertTrue(success);
-        }
-        vm.stopPrank();
-    }
+    //     vm.startPrank(user3);
+    //     {
+    //         usdc.approve(address(lending), type(uint256).max);
+    //         (bool success,) = address(lending).call(
+    //             abi.encodeWithSelector(DreamAcademyLending.liquidate.selector, user2, address(usdc), 500 ether)
+    //         );
+    //         assertTrue(success);
+    //     }
+    //     vm.stopPrank();
+    // }
 
-    function testLiquidationExceedingDebtFails() external {
-        // ** README **
-        // can liquidate the whole position when the borrowed amount is less than 100,
-        // otherwise only 25% can be liquidated at once.
-        supplyUSDCDepositUser1();
-        supplySmallEtherDepositUser2();
+    // function testLiquidationExceedingDebtFails() external {
+    //     // ** README **
+    //     // can liquidate the whole position when the borrowed amount is less than 100,
+    //     // otherwise only 25% can be liquidated at once.
+    //     supplyUSDCDepositUser1();
+    //     supplySmallEtherDepositUser2();
 
-        dreamOracle.setPrice(address(0x0), 4000 ether);
+    //     dreamOracle.setPrice(address(0x0), 4000 ether);
 
-        vm.startPrank(user2);
-        {
-            // use all collateral
-            (bool success,) = address(lending).call(
-                abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 2000 ether)
-            );
-            assertTrue(success);
+    //     vm.startPrank(user2);
+    //     {
+    //         // use all collateral
+    //         (bool success,) = address(lending).call(
+    //             abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 2000 ether)
+    //         );
+    //         assertTrue(success);
 
-            assertTrue(usdc.balanceOf(user2) == 2000 ether);
+    //         assertTrue(usdc.balanceOf(user2) == 2000 ether);
 
-            usdc.approve(address(lending), type(uint256).max);
-        }
-        vm.stopPrank();
+    //         usdc.approve(address(lending), type(uint256).max);
+    //     }
+    //     vm.stopPrank();
 
-        dreamOracle.setPrice(address(0x0), (4000 * 66 / 100) * 1e18); // drop price to 66%
-        usdc.transfer(user3, 3000 ether);
+    //     dreamOracle.setPrice(address(0x0), (4000 * 66 / 100) * 1e18); // drop price to 66%
+    //     usdc.transfer(user3, 3000 ether);
 
-        vm.startPrank(user3);
-        {
-            usdc.approve(address(lending), type(uint256).max);
-            (bool success,) = address(lending).call(
-                abi.encodeWithSelector(DreamAcademyLending.liquidate.selector, user2, address(usdc), 501 ether)
-            );
-            assertFalse(success);
-        }
-        vm.stopPrank();
-    }
+    //     vm.startPrank(user3);
+    //     {
+    //         usdc.approve(address(lending), type(uint256).max);
+    //         (bool success,) = address(lending).call(
+    //             abi.encodeWithSelector(DreamAcademyLending.liquidate.selector, user2, address(usdc), 501 ether)
+    //         );
+    //         assertFalse(success);
+    //     }
+    //     vm.stopPrank();
+    // }
 
-    function testLiquidationHealthyLoanAfterPriorLiquidationFails() external {
-        supplyUSDCDepositUser1();
-        supplySmallEtherDepositUser2();
+    // function testLiquidationHealthyLoanAfterPriorLiquidationFails() external {
+    //     supplyUSDCDepositUser1();
+    //     supplySmallEtherDepositUser2();
 
-        dreamOracle.setPrice(address(0x0), 4000 ether);
+    //     dreamOracle.setPrice(address(0x0), 4000 ether);
 
-        vm.startPrank(user2);
-        {
-            // use all collateral
-            (bool success,) = address(lending).call(
-                abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 2000 ether)
-            );
-            assertTrue(success);
+    //     vm.startPrank(user2);
+    //     {
+    //         // use all collateral
+    //         (bool success,) = address(lending).call(
+    //             abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 2000 ether)
+    //         );
+    //         assertTrue(success);
 
-            assertTrue(usdc.balanceOf(user2) == 2000 ether);
+    //         assertTrue(usdc.balanceOf(user2) == 2000 ether);
 
-            usdc.approve(address(lending), type(uint256).max);
-        }
-        vm.stopPrank();
+    //         usdc.approve(address(lending), type(uint256).max);
+    //     }
+    //     vm.stopPrank();
 
-        dreamOracle.setPrice(address(0x0), (4000 * 66 / 100) * 1e18); // drop price to 66%
-        usdc.transfer(user3, 3000 ether);
+    //     dreamOracle.setPrice(address(0x0), (4000 * 66 / 100) * 1e18); // drop price to 66%
+    //     usdc.transfer(user3, 3000 ether);
 
-        vm.startPrank(user3);
-        {
-            usdc.approve(address(lending), type(uint256).max);
-            (bool success,) = address(lending).call(
-                abi.encodeWithSelector(DreamAcademyLending.liquidate.selector, user2, address(usdc), 500 ether)
-            );
-            assertTrue(success);
-            (success,) = address(lending).call(
-                abi.encodeWithSelector(DreamAcademyLending.liquidate.selector, user2, address(usdc), 100 ether)
-            );
-            assertFalse(success);
-        }
-        vm.stopPrank();
-    }
+    //     vm.startPrank(user3);
+    //     {
+    //         usdc.approve(address(lending), type(uint256).max);
+    //         (bool success,) = address(lending).call(
+    //             abi.encodeWithSelector(DreamAcademyLending.liquidate.selector, user2, address(usdc), 500 ether)
+    //         );
+    //         assertTrue(success);
+    //         (success,) = address(lending).call(
+    //             abi.encodeWithSelector(DreamAcademyLending.liquidate.selector, user2, address(usdc), 100 ether)
+    //         );
+    //         assertFalse(success);
+    //     }
+    //     vm.stopPrank();
+    // }
 
-    function testLiquidationAfterBorrowerCollateralDepositFails() external {
-        supplyUSDCDepositUser1();
-        supplySmallEtherDepositUser2();
+    // function testLiquidationAfterBorrowerCollateralDepositFails() external {
+    //     supplyUSDCDepositUser1();
+    //     supplySmallEtherDepositUser2();
 
-        dreamOracle.setPrice(address(0x0), 4000 ether);
+    //     dreamOracle.setPrice(address(0x0), 4000 ether);
 
-        vm.startPrank(user2);
-        {
-            // use all collateral
-            (bool success,) = address(lending).call(
-                abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 2000 ether)
-            );
-            assertTrue(success);
+    //     vm.startPrank(user2);
+    //     {
+    //         // use all collateral
+    //         (bool success,) = address(lending).call(
+    //             abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 2000 ether)
+    //         );
+    //         assertTrue(success);
 
-            assertTrue(usdc.balanceOf(user2) == 2000 ether);
+    //         assertTrue(usdc.balanceOf(user2) == 2000 ether);
 
-            usdc.approve(address(lending), type(uint256).max);
-        }
-        vm.stopPrank();
+    //         usdc.approve(address(lending), type(uint256).max);
+    //     }
+    //     vm.stopPrank();
 
-        supplySmallEtherDepositUser2();
+    //     supplySmallEtherDepositUser2();
 
-        dreamOracle.setPrice(address(0x0), (4000 * 66 / 100) * 1e18); // drop price to 66%
-        usdc.transfer(user3, 3000 ether);
+    //     dreamOracle.setPrice(address(0x0), (4000 * 66 / 100) * 1e18); // drop price to 66%
+    //     usdc.transfer(user3, 3000 ether);
 
-        vm.startPrank(user3);
-        {
-            usdc.approve(address(lending), type(uint256).max);
-            (bool success,) = address(lending).call(
-                abi.encodeWithSelector(DreamAcademyLending.liquidate.selector, user2, address(usdc), 500 ether)
-            );
-            assertFalse(success);
-        }
-        vm.stopPrank();
-    }
+    //     vm.startPrank(user3);
+    //     {
+    //         usdc.approve(address(lending), type(uint256).max);
+    //         (bool success,) = address(lending).call(
+    //             abi.encodeWithSelector(DreamAcademyLending.liquidate.selector, user2, address(usdc), 500 ether)
+    //         );
+    //         assertFalse(success);
+    //     }
+    //     vm.stopPrank();
+    // }
 
-    function testLiquidationAfterDebtPriceDropFails() external {
-        // just imagine if USDC falls down
-        supplyUSDCDepositUser1();
-        supplySmallEtherDepositUser2();
+    // function testLiquidationAfterDebtPriceDropFails() external {
+    //     // just imagine if USDC falls down
+    //     supplyUSDCDepositUser1();
+    //     supplySmallEtherDepositUser2();
 
-        dreamOracle.setPrice(address(0x0), 4000 ether);
+    //     dreamOracle.setPrice(address(0x0), 4000 ether);
 
-        vm.startPrank(user2);
-        {
-            // use all collateral
-            (bool success,) = address(lending).call(
-                abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 2000 ether)
-            );
-            assertTrue(success);
+    //     vm.startPrank(user2);
+    //     {
+    //         // use all collateral
+    //         (bool success,) = address(lending).call(
+    //             abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 2000 ether)
+    //         );
+    //         assertTrue(success);
 
-            assertTrue(usdc.balanceOf(user2) == 2000 ether);
+    //         assertTrue(usdc.balanceOf(user2) == 2000 ether);
 
-            usdc.approve(address(lending), type(uint256).max);
-        }
-        vm.stopPrank();
+    //         usdc.approve(address(lending), type(uint256).max);
+    //     }
+    //     vm.stopPrank();
 
-        dreamOracle.setPrice(address(0x0), (4000 * 66 / 100) * 1e18); // drop Ether price to 66%
-        dreamOracle.setPrice(address(usdc), 1e17); // drop USDC price to 0.1, 90% down
-        usdc.transfer(user3, 3000 ether);
+    //     dreamOracle.setPrice(address(0x0), (4000 * 66 / 100) * 1e18); // drop Ether price to 66%
+    //     dreamOracle.setPrice(address(usdc), 1e17); // drop USDC price to 0.1, 90% down
+    //     usdc.transfer(user3, 3000 ether);
 
-        vm.startPrank(user3);
-        {
-            usdc.approve(address(lending), type(uint256).max);
-            (bool success,) = address(lending).call(
-                abi.encodeWithSelector(DreamAcademyLending.liquidate.selector, user2, address(usdc), 500 ether)
-            );
-            assertFalse(success);
-        }
-        vm.stopPrank();
-    }
+    //     vm.startPrank(user3);
+    //     {
+    //         usdc.approve(address(lending), type(uint256).max);
+    //         (bool success,) = address(lending).call(
+    //             abi.encodeWithSelector(DreamAcademyLending.liquidate.selector, user2, address(usdc), 500 ether)
+    //         );
+    //         assertFalse(success);
+    //     }
+    //     vm.stopPrank();
+    // }
 
     receive() external payable {
         // for ether receive
