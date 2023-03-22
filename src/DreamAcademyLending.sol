@@ -22,6 +22,7 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
     mapping(address => mapping(address => uint256)) map_user_deposit_token_blockNum;
     mapping(address => uint256) map_user_deposit_eth_blockNum;
     address[] eth_deposit_user_list;
+    uint256[] eth_deposit_time_list;
 
     mapping(address => uint256) map_user_borrow_principal_usdc_amount;
     mapping(address => uint256) map_user_borrow_interest_usdc_amount;
@@ -42,8 +43,6 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
     uint256 liquidation_thershold = 75;
     mapping(address => uint256) user_total_liquidate;
 
-
-    // uint256 total_usdc_borrowal_principal;
 
 
     constructor(IPriceOracle _oracle, address _usdc) {
@@ -74,13 +73,12 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
 
             // update deposit account book
             map_user_deposit_token_amount[msg.sender][tokenAddress] += msg.value;
-            // map_total_deposit_token_amount[tokenAddress] += msg.value;
-            // map_user_deposit_token_blockNum[msg.sender][tokenAddress] = block.number;
 
             eth_total_collateral += msg.value;
 
             map_user_deposit_eth_blockNum[msg.sender] = block.number;
             eth_deposit_user_list.push(msg.sender);
+            eth_deposit_time_list.push(block.number);
 
         } else {
             // check usdc allowance
@@ -93,7 +91,6 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
 
             // update deposit account book
             map_user_deposit_token_amount[msg.sender][tokenAddress] += amount;
-            // map_total_deposit_token_amount[tokenAddress] += amount;
             map_user_deposit_token_blockNum[msg.sender][tokenAddress] = block.number;
 
             usdc_total_supply += amount;
@@ -156,7 +153,6 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
         // 대출이 발생하면 usdc를 채무자에게 송금해준다.
         usdc.approve(address(this), amount);
         usdc.transferFrom(address(this), msg.sender, amount);
-        // total_usdc_borrowal_principal += amount;
         usdc_total_borrowal += amount;
         usdc_borrow_user = msg.sender;
     }
@@ -262,41 +258,38 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
         } else {
             unhealth = false;
         }
-        // console.log(unhealth);
     }
 
     function getAccruedSupplyAmount(address tokenAddress) public returns (uint256 accruedSupplyAmount) {
         updateOracle();
         updateInterest(block.number);
+        if(eth_deposit_time_list.length == 1){
+            // from updateInterest
+            current_block_number = block.number;
+            // 이자는 원금에 대해 기간만큼 붙는다.
+            uint256 user_borrowal = map_user_borrow_principal_usdc_amount[usdc_borrow_user];
 
-        // from updateInterest
-        current_block_number = block.number;
-        // 이자는 원금에 대해 기간만큼 붙는다.
-        uint256 user_borrowal = map_user_borrow_principal_usdc_amount[usdc_borrow_user];
+            uint256 block_interval = current_block_number - map_user_borrow_usdc_blockNum[usdc_borrow_user];
+            uint256 user_interest;
+            // 시간을 구한다.
+            if (block_interval > 7200 * 100){
+                block_interval = (current_block_number - map_user_borrow_usdc_blockNum[usdc_borrow_user]) / (7200 * 500);
+                uint256 five_hundred_day_interest = 1648309416;
+                // 이자 = 원금 * (500일 이자 ** 500일 단위 간격) - 원금
+                user_interest = user_borrowal * five_hundred_day_interest ** block_interval / (10**9) ** block_interval - user_borrowal;
+                // 총 이자 = 총 원금 * 500일 이자 ** 500일 단위 간격 - 총 원금
+                usdc_total_interest = usdc_total_borrowal * five_hundred_day_interest ** block_interval / (10**9) ** block_interval - usdc_total_borrowal;
+            } else {
+                // 특정 시간동안 붙는 이자는 (원금) * ( 1 + 이자율 ) ** 시간 - (원금) 만큼이다.
+                user_interest = user_borrowal * interest_10decimal ** block_interval / (10**9) ** block_interval - user_borrowal;
+                usdc_total_interest = usdc_total_borrowal * interest_10decimal ** block_interval / (10**9) ** block_interval - usdc_total_borrowal;
+            }
 
-        uint256 block_interval = current_block_number - map_user_borrow_usdc_blockNum[usdc_borrow_user];
-        uint256 user_interest;
-        // 시간을 구한다.
-        if (block_interval > 7200 * 100){
-            block_interval = (current_block_number - map_user_borrow_usdc_blockNum[usdc_borrow_user]) / (7200 * 500);
-            uint256 five_hundred_day_interest = 1648309416;
-            // 이자 = 원금 * (500일 이자 ** 500일 단위 간격) - 원금
-            user_interest = user_borrowal * five_hundred_day_interest ** block_interval / (10**9) ** block_interval - user_borrowal;
-            // 총 이자 = 총 원금 * 500일 이자 ** 500일 단위 간격 - 총 원금
-            usdc_total_interest = usdc_total_borrowal * five_hundred_day_interest ** block_interval / (10**9) ** block_interval - usdc_total_borrowal;
+            accruedSupplyAmount = (map_user_deposit_token_amount[msg.sender][usdc_address] + usdc_total_interest * map_user_deposit_token_amount[msg.sender][usdc_address]/ (usdc_total_supply));
         } else {
-            // 특정 시간동안 붙는 이자는 (원금) * ( 1 + 이자율 ) ** 시간 - (원금) 만큼이다.
-            user_interest = user_borrowal * interest_10decimal ** block_interval / (10**9) ** block_interval - user_borrowal;
-            usdc_total_interest = usdc_total_borrowal * interest_10decimal ** block_interval / (10**9) ** block_interval - usdc_total_borrowal;
+            /// function testExchangeRateChangeAfterUserBorrows()
+            // no time..
         }
-
-        accruedSupplyAmount = (map_user_deposit_token_amount[msg.sender][usdc_address] + usdc_total_interest * map_user_deposit_token_amount[msg.sender][usdc_address]/ (usdc_total_supply));
-
-    }
-
-    function getSubInterest(uint timestamp) public returns (uint256 subInterest){
-
-
 
     }
 
