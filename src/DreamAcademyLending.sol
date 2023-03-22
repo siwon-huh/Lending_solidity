@@ -188,6 +188,30 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
         updateOracle();
         updateInterest(block.number);
         require(UnHealthyLoan(user), "the loan is healthy. you cannot liquidate him.");
+
+        // 유저가 빌린 돈을 일단 계산한다. debt를 넘어가는 liquidation은 불가능하다.
+        uint user_borrowal = map_user_borrow_principal_with_interest_usdc_amount[user] * usdc_price;
+
+        // 유저의 담보가치를 계산한다. 담보의 1/4까지만 한번에 청산 가능하다.
+        uint user_deposit = map_user_deposit_token_amount[user][eth_address] * eth_price;
+
+        // amount는 usdc의 양으로 들어온다.
+        if (user_deposit > 100 ether){
+            // 100 이상이면 liquidation에 제한이 걸린다.
+            require(amount * 4 <= user_deposit, "only 25% can be liquidate at once");
+            // 청산이 되면 유저의 deposit이 amount의 가치만큼 깎이고 usdc의 풀이 늘어난다.
+            map_user_deposit_token_amount[user][eth_address] -= amount / eth_price;
+            usdc.approve(user, amount);
+            usdc.transferFrom(user, address(this), amount);
+        } else {
+            // 100 이하의 포지션이면 모든 포지션 청산이 가능하다.
+            map_user_deposit_token_amount[user][eth_address] -= amount / eth_price;
+            usdc.approve(user, amount);
+            usdc.transferFrom(user, address(this), amount);
+        }
+
+
+
         // uint256 user_total_deposit = map_user_deposit_token_amount[user][eth_address] * eth_price+ map_user_deposit_token_amount[user][usdc_address] + usdc_price;
         // uint256 user_total_borrow = map_user_borrow_principal_usdc_amount[user] * usdc_price;
         // require(user_total_deposit * liquidation_thershold < user_total_borrow * 100, "liquidation not yet");
@@ -255,7 +279,6 @@ contract DreamAcademyLending is IDreamAcaemdyLending{
         } else {
             unhealth = false;
         }
-
     }
 
     function getAccruedSupplyAmount(address tokenAddress) public returns (uint256 accruedSupplyAmount) {
